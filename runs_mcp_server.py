@@ -10,7 +10,11 @@ import json
 logging.basicConfig(
     level=logging.INFO,
     format='[MCP SERVER] %(asctime)s - %(levelname)s - %(message)s',
-    datefmt='%H:%M:%S'
+    datefmt='%H:%M:%S',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler('runstats.log', mode='a', encoding='utf-8')
+    ]
 )
 logger = logging.getLogger(__name__)
 
