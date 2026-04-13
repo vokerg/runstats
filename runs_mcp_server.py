@@ -85,14 +85,13 @@ def recompute_ranks() -> dict:
 
 @mcp.tool()
 def get_runs(
-    distance_km: Optional[confloat(gt=0)] = Field(None, description="Exact distance in km to filter on."),
+    distance_km: Optional[confloat(ge=0)] = Field(None, description="Exact distance in km to filter on. Omit or use 0 to search all distances."),
     run_type: Optional[RunType] = Field(None, description="Limit to a run type."),
     date_from: Optional[constr(pattern=r"^\d{4}-\d{2}-\d{2}$")] = Field(None, description="Inclusive start date."),
     date_to: Optional[constr(pattern=r"^\d{4}-\d{2}-\d{2}$")] = Field(None, description="Inclusive end date."),
-    rank_all: Optional[conint(ge=0)] = Field(None, description="Filter to runs with this overall rank (1=fastest overall). Omit to get all results sorted by speed."),
-    rank_outdoor: Optional[conint(ge=0)] = Field(None, description="Filter to runs with this outdoor rank (1=fastest outdoor). Omit to get all results sorted by speed."),
+    rank_all: Optional[conint(ge=0)] = Field(None, description="Filter to runs with this overall rank (1=fastest overall). Use 0 or omit to get all results sorted by speed."),
+    rank_outdoor: Optional[conint(ge=0)] = Field(None, description="Filter to runs with this outdoor rank (1=fastest outdoor). Use 0 or omit to get all results sorted by speed."),
     is_record: Optional[conint(ge=0, le=1)] = Field(None, description="1 for records only, 0 for non-records only. Omit to get both.")
-) -> dict:
 ) -> dict:
     """
     Returns runs filtered by any combination of available columns.
@@ -102,7 +101,7 @@ def get_runs(
     """
     # Log input parameters
     filters_log = []
-    if distance_km is not None:
+    if distance_km is not None and distance_km > 0:
         filters_log.append(f"distance={distance_km}km")
     if run_type is not None:
         filters_log.append(f"type={run_type.value}")
@@ -124,7 +123,7 @@ def get_runs(
     cur = con.cursor()
 
     filters, params = [], []
-    if distance_km is not None:
+    if distance_km is not None and distance_km > 0:
         filters.append("distance_km = ?"); params.append(float(distance_km))
     if run_type is not None:
         filters.append("type = ?"); params.append(run_type.value)
@@ -136,20 +135,27 @@ def get_runs(
         filters.append("rank_all = ?"); params.append(int(rank_all))
     if rank_outdoor is not None and rank_outdoor > 0:
         filters.append("rank_outdoor = ?"); params.append(int(rank_outdoor))
-    if is_record is not None:
+    if is_record is not None and not (rank_all is not None and rank_all > 0) and not (rank_outdoor is not None and rank_outdoor > 0):
         filters.append("is_record = ?"); params.append(int(is_record))
 
     where_clause = " WHERE " + " AND ".join(filters) if filters else ""
+    
+    # Sort by speed (fastest first) when querying all distances, otherwise by distance/date
+    if distance_km is None or distance_km == 0:
+        order_clause = "ORDER BY time_seconds, distance_km, date"
+    else:
+        order_clause = "ORDER BY distance_km, date, time_seconds"
+    
     query = f"""SELECT run_no, date, distance_km, time_seconds, type,
                        rank_all, rank_outdoor, is_record
                 FROM runs{where_clause}
-                ORDER BY distance_km, date, time_seconds"""
+                {order_clause}"""
     cur.execute(query, params)
     rows = [dict(r) for r in cur.fetchall()]
     con.close()
     logger.info(f"✅ get_runs() returned {len(rows)} run(s)")
     for row in rows[:5]:  # Log first 5 results
-        logger.info(f"   - #{row['run_no']}: {row['date']} {row['distance_km']}km {row['type']}")
+        logger.info(f"   - #{row['run_no']}: {row['date']} {row['distance_km']}km {row['time_seconds']}s {row['type']}")
     if len(rows) > 5:
         logger.info(f"   ... and {len(rows)-5} more")
     return {"rows": rows}

@@ -44,7 +44,7 @@ GET_RUNS_TOOL = {
         "properties": {
             "distance_km": {
                 "type": "number",
-                "description": "Exact distance in kilometers, such as 5, 10, 21.1, or 42.2.",
+                "description": "Exact distance in kilometers (e.g., 5, 10, 21.1, 42.2). Omit or use 0 to search all distances.",
             },
             "run_type": {
                 "type": "string",
@@ -61,16 +61,16 @@ GET_RUNS_TOOL = {
             },
             "rank_all": {
                 "type": "integer",
-                "description": "Filter to runs with this overall rank (1=fastest overall). Omit to get all results sorted by speed.",
+                "description": "Filter to runs with this overall rank (1=fastest overall). Use 0 or omit to get all results sorted by speed.",
             },
             "rank_outdoor": {
                 "type": "integer",
-                "description": "Filter to runs with this outdoor rank (1=fastest outdoor). Omit to get all results sorted by speed.",
+                "description": "Filter to runs with this outdoor rank (1=fastest outdoor). Use 0 or omit to get all results sorted by speed.",
             },
             "is_record": {
                 "type": "integer",
                 "enum": [0, 1],
-                "description": "1 for records only, 0 for non-records only. Omit to get both.",
+                "description": "1 for records only, 0 for non-records only. Omit to include both records and non-records.",
             },
         },
         "additionalProperties": False,
