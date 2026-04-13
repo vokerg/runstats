@@ -89,9 +89,10 @@ def get_runs(
     run_type: Optional[RunType] = Field(None, description="Limit to a run type."),
     date_from: Optional[constr(pattern=r"^\d{4}-\d{2}-\d{2}$")] = Field(None, description="Inclusive start date."),
     date_to: Optional[constr(pattern=r"^\d{4}-\d{2}-\d{2}$")] = Field(None, description="Inclusive end date."),
-    rank_all: Optional[conint(ge=1)] = Field(None, description="Select runs where rank_all equals this value."),
-    rank_outdoor: Optional[conint(ge=1)] = Field(None, description="Select runs where rank_outdoor equals this value."),
-    is_record: Optional[conint(ge=0, le=1)] = Field(None, description="1 for records only, 0 for non-records only.")
+    rank_all: Optional[conint(ge=0)] = Field(None, description="Filter to runs with this overall rank (1=fastest overall). Omit to get all results sorted by speed."),
+    rank_outdoor: Optional[conint(ge=0)] = Field(None, description="Filter to runs with this outdoor rank (1=fastest outdoor). Omit to get all results sorted by speed."),
+    is_record: Optional[conint(ge=0, le=1)] = Field(None, description="1 for records only, 0 for non-records only. Omit to get both.")
+) -> dict:
 ) -> dict:
     """
     Returns runs filtered by any combination of available columns.
@@ -109,9 +110,9 @@ def get_runs(
         filters_log.append(f"date_from={date_from}")
     if date_to is not None:
         filters_log.append(f"date_to={date_to}")
-    if rank_all is not None:
+    if rank_all is not None and rank_all > 0:
         filters_log.append(f"rank_all={rank_all}")
-    if rank_outdoor is not None:
+    if rank_outdoor is not None and rank_outdoor > 0:
         filters_log.append(f"rank_outdoor={rank_outdoor}")
     if is_record is not None:
         filters_log.append(f"is_record={is_record}")
@@ -131,9 +132,9 @@ def get_runs(
         filters.append("date >= ?"); params.append(date_from)
     if date_to is not None:
         filters.append("date <= ?"); params.append(date_to)
-    if rank_all is not None:
+    if rank_all is not None and rank_all > 0:
         filters.append("rank_all = ?"); params.append(int(rank_all))
-    if rank_outdoor is not None:
+    if rank_outdoor is not None and rank_outdoor > 0:
         filters.append("rank_outdoor = ?"); params.append(int(rank_outdoor))
     if is_record is not None:
         filters.append("is_record = ?"); params.append(int(is_record))

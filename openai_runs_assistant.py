@@ -61,16 +61,16 @@ GET_RUNS_TOOL = {
             },
             "rank_all": {
                 "type": "integer",
-                "description": "Select runs where overall rank equals this value.",
+                "description": "Filter to runs with this overall rank (1=fastest overall). Omit to get all results sorted by speed.",
             },
             "rank_outdoor": {
                 "type": "integer",
-                "description": "Select runs where outdoor rank equals this value.",
+                "description": "Filter to runs with this outdoor rank (1=fastest outdoor). Omit to get all results sorted by speed.",
             },
             "is_record": {
                 "type": "integer",
                 "enum": [0, 1],
-                "description": "1 for records only, 0 for non-records only.",
+                "description": "1 for records only, 0 for non-records only. Omit to get both.",
             },
         },
         "additionalProperties": False,
