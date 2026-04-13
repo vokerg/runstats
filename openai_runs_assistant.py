@@ -2,6 +2,7 @@ import argparse
 import asyncio
 import json
 import os
+import logging
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -11,6 +12,14 @@ from mcp.client.stdio import StdioServerParameters, stdio_client
 from mcp.client.streamable_http import streamable_http_client
 from openai import OpenAI
 from dotenv import load_dotenv
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='[ASSISTANT] %(asctime)s - %(levelname)s - %(message)s',
+    datefmt='%H:%M:%S'
+)
+logger = logging.getLogger(__name__)
 
 
 DEFAULT_URL = "http://127.0.0.1:8000/mcp"
@@ -94,12 +103,20 @@ def build_instructions(today: str) -> str:
 
 def build_transport(args: argparse.Namespace):
     if args.transport == "stdio":
+        # Cross-platform Python executable path in virtual environment
+        if os.name == 'nt':  # Windows
+            python_exe = PROJECT_ROOT / ".venv" / "Scripts" / "python.exe"
+        else:  # Unix-like
+            python_exe = PROJECT_ROOT / ".venv" / "bin" / "python"
+        
+        logger.info(f"🔌 Starting MCP server via stdio: {python_exe}")
         server = StdioServerParameters(
-            command=str(PROJECT_ROOT / ".venv" / "bin" / "python"),
+            command=str(python_exe),
             args=["runs_mcp_server.py"],
             cwd=str(PROJECT_ROOT),
         )
         return stdio_client(server)
+    logger.info(f"🔌 Connecting to MCP server via HTTP: {args.url}")
     return streamable_http_client(args.url)
 
 
@@ -119,6 +136,8 @@ async def ask_question(
     verbose: bool,
     previous_response_id: str | None = None,
 ) -> tuple[str, str]:
+    logger.info(f"❓ User question: {question}")
+    
     response = client.responses.create(
         model=model,
         input=question,
@@ -129,19 +148,28 @@ async def ask_question(
         parallel_tool_calls=False,
         max_output_tokens=max_output_tokens,
     )
+    logger.info(f"🤖 OpenAI API response received")
 
-    for _ in range(max_round_trips):
+    for round_num in range(max_round_trips):
         function_calls = [
             item for item in response.output if getattr(item, "type", None) == "function_call"
         ]
         if not function_calls:
-            return response.output_text.strip(), response.id
+            answer = response.output_text.strip()
+            logger.info(f"✅ Final answer: {answer[:100]}..." if len(answer) > 100 else f"✅ Final answer: {answer}")
+            return answer, response.id
 
+        logger.info(f"🔄 Round {round_num + 1}: Found {len(function_calls)} tool call(s)")
+        
         tool_outputs = []
         for item in function_calls:
             tool_args = json.loads(item.arguments or "{}")
+            logger.info(f"   📞 Calling: {item.name}({json.dumps(tool_args)})")
+            
             tool_result = await session.call_tool(item.name, tool_args)
             payload = extract_tool_payload(tool_result)
+
+            logger.info(f"   ✔️ {item.name}() returned {len(payload.get('rows', []))} row(s)" if 'rows' in payload else f"   ✔️ {item.name}() response: {payload}")
 
             if verbose:
                 print()
@@ -166,11 +194,13 @@ async def ask_question(
             parallel_tool_calls=False,
             max_output_tokens=max_output_tokens,
         )
+        logger.info(f"🤖 OpenAI API processed tool results")
 
     raise RuntimeError("The assistant exceeded the maximum number of tool round-trips.")
 
 
 async def run_single_question(args: argparse.Namespace) -> str:
+    logger.info("🚀 Starting single question mode...")
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
         raise RuntimeError(
@@ -178,12 +208,14 @@ async def run_single_question(args: argparse.Namespace) -> str:
         )
 
     client = OpenAI(api_key=api_key)
+    logger.info("✅ OpenAI client initialized")
     transport_cm = build_transport(args)
     instructions = build_instructions(args.today)
 
     async with transport_cm as (read_stream, write_stream, *_rest):
         async with ClientSession(read_stream, write_stream) as session:
             await session.initialize()
+            logger.info("✅ MCP session initialized")
             answer, _response_id = await ask_question(
                 client=client,
                 session=session,
@@ -198,6 +230,7 @@ async def run_single_question(args: argparse.Namespace) -> str:
 
 
 async def run_chat_loop(args: argparse.Namespace) -> None:
+    logger.info("🚀 Starting chat mode...")
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
         raise RuntimeError(
@@ -205,12 +238,14 @@ async def run_chat_loop(args: argparse.Namespace) -> None:
         )
 
     client = OpenAI(api_key=api_key)
+    logger.info("✅ OpenAI client initialized")
     transport_cm = build_transport(args)
     instructions = build_instructions(args.today)
 
     async with transport_cm as (read_stream, write_stream, *_rest):
         async with ClientSession(read_stream, write_stream) as session:
             await session.initialize()
+            logger.info("✅ MCP session initialized and ready")
             previous_response_id = None
 
             print(f"Runs chat is ready with model {args.model}.")
@@ -221,11 +256,13 @@ async def run_chat_loop(args: argparse.Namespace) -> None:
                     question = input("\nYou: ").strip()
                 except EOFError:
                     print()
+                    logger.info("👋 Chat ended (EOF)")
                     return
 
                 if not question:
                     continue
                 if question.lower() in {"exit", "quit"}:
+                    logger.info("👋 Chat ended (user requested exit)")
                     return
 
                 answer, previous_response_id = await ask_question(
@@ -298,13 +335,18 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     load_environment()
+    logger.info("📋 Loaded environment variables")
+    
     args = parse_args()
+    logger.info(f"⚙️ Configuration: transport={args.transport}, model={args.model}, chat={args.chat}")
+    
     if not args.question and not args.chat:
         args.chat = True
 
     try:
         answer = asyncio.run(run_assistant(args))
     except RuntimeError as exc:
+        logger.error(f"❌ Error: {exc}")
         raise SystemExit(str(exc))
 
     if answer is not None:

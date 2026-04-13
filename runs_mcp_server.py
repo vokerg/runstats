@@ -1,9 +1,18 @@
 # runs_mcp_server.py
 from enum import Enum
-import os, sqlite3
+import os, sqlite3, logging
 from typing import Optional, List, Literal
 from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel, Field, conint, confloat, constr
+import json
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='[MCP SERVER] %(asctime)s - %(levelname)s - %(message)s',
+    datefmt='%H:%M:%S'
+)
+logger = logging.getLogger(__name__)
 
 
 class RunType(str, Enum):
@@ -32,6 +41,10 @@ def upsert_runs(runs: List[Run]) -> dict:
     - If a run_no already exists, it is replaced.
     - You must include all required fields for each run.
     """
+    logger.info(f"📝 TOOL CALL: upsert_runs() with {len(runs)} run(s)")
+    for run in runs:
+        logger.info(f"   - Run #{run.run_no}: {run.date} {run.distance_km}km {run.type}")
+    
     con = sqlite3.connect(DB)
     cur = con.cursor()
     cur.executemany(
@@ -42,7 +55,9 @@ def upsert_runs(runs: List[Run]) -> dict:
     )
     con.commit()
     con.close()
-    return {"ok": True, "count": len(runs)}
+    result = {"ok": True, "count": len(runs)}
+    logger.info(f"✅ upsert_runs() completed: {result}")
+    return result
 
 @mcp.tool()
 def recompute_ranks() -> dict:
@@ -50,14 +65,19 @@ def recompute_ranks() -> dict:
     Run the SQL in ./recompute_ranks.sql to recompute ranking columns such as
     rank_all, rank_outdoor and is_record. The script must create/update those columns.
     """
+    logger.info(f"📝 TOOL CALL: recompute_ranks()")
     path = "recompute_ranks.sql"
     if not os.path.exists(path):
-        return {"ok": False, "error": f"{path} not found"}
+        result = {"ok": False, "error": f"{path} not found"}
+        logger.error(f"❌ recompute_ranks() failed: {result}")
+        return result
     con = sqlite3.connect(DB)
     with open(path, "r", encoding="utf-8") as f:
         con.executescript(f.read())
     con.close()
-    return {"ok": True, "message": "Ranks recomputed"}
+    result = {"ok": True, "message": "Ranks recomputed"}
+    logger.info(f"✅ recompute_ranks() completed: {result}")
+    return result
 
 @mcp.tool()
 def get_runs(
@@ -75,6 +95,26 @@ def get_runs(
     Example:
       get_runs(distance_km=5, run_type="treadmill", date_from="2018-01-01", date_to="2018-12-31")
     """
+    # Log input parameters
+    filters_log = []
+    if distance_km is not None:
+        filters_log.append(f"distance={distance_km}km")
+    if run_type is not None:
+        filters_log.append(f"type={run_type.value}")
+    if date_from is not None:
+        filters_log.append(f"date_from={date_from}")
+    if date_to is not None:
+        filters_log.append(f"date_to={date_to}")
+    if rank_all is not None:
+        filters_log.append(f"rank_all={rank_all}")
+    if rank_outdoor is not None:
+        filters_log.append(f"rank_outdoor={rank_outdoor}")
+    if is_record is not None:
+        filters_log.append(f"is_record={is_record}")
+    
+    filter_str = ", ".join(filters_log) if filters_log else "no filters"
+    logger.info(f"📝 TOOL CALL: get_runs({filter_str})")
+    
     con = sqlite3.connect(DB); con.row_factory = sqlite3.Row
     cur = con.cursor()
 
@@ -102,6 +142,11 @@ def get_runs(
     cur.execute(query, params)
     rows = [dict(r) for r in cur.fetchall()]
     con.close()
+    logger.info(f"✅ get_runs() returned {len(rows)} run(s)")
+    for row in rows[:5]:  # Log first 5 results
+        logger.info(f"   - #{row['run_no']}: {row['date']} {row['distance_km']}km {row['type']}")
+    if len(rows) > 5:
+        logger.info(f"   ... and {len(rows)-5} more")
     return {"rows": rows}
 
 if __name__ == "__main__":
