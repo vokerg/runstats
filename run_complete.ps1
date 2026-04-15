@@ -37,9 +37,9 @@ if (Test-Path "requirements.txt") {
 
 # Step 4: Initialize database if needed
 Write-Host "💾 Setting up database..." -ForegroundColor Green
-if (-not (Test-Path "runs.sqlite")) {
+if (-not (Test-Path "db/runs.sqlite")) {
     Write-Host "Creating database schema..."
-    sqlite3 runs.sqlite < tables.sql
+    sqlite3 db/runs.sqlite < db/tables.sql
     if ($LASTEXITCODE -ne 0) {
         Write-Error "Failed to create database schema"
         exit 1
@@ -50,7 +50,7 @@ if (-not (Test-Path "runs.sqlite")) {
 }
 
 # Step 5: Load data if needed
-if ((Test-Path "run_5k.tsv") -and (Test-Path "runs.sqlite")) {
+if ((Test-Path "resources/run_5k.tsv") -and (Test-Path "db/runs.sqlite")) {
     Write-Host "📊 Loading/updating run data..." -ForegroundColor Green
     python load_5k.py
     python load_10k.py

@@ -20,7 +20,7 @@ logging.basicConfig(
     datefmt='%H:%M:%S',
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler('runstats.log', mode='a', encoding='utf-8')
+        logging.FileHandler('../logs/runstats.log', mode='a', encoding='utf-8')
     ]
 )
 logger = logging.getLogger(__name__)

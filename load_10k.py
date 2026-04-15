@@ -1,7 +1,7 @@
 import sqlite3
 
-DB = "runs.sqlite"
-TSV = "run_10k.tsv"
+DB = "db/runs.sqlite"
+TSV = "resources/run_10k.tsv"
 
 
 def hms_to_seconds(hms):

@@ -13,7 +13,7 @@ logging.basicConfig(
     datefmt='%H:%M:%S',
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler('runstats.log', mode='a', encoding='utf-8')
+        logging.FileHandler('../logs/runstats.log', mode='a', encoding='utf-8')
     ]
 )
 logger = logging.getLogger(__name__)
@@ -35,7 +35,7 @@ class Run(BaseModel):
     time_seconds: conint(strict=True, gt=0) = Field(..., description="Elapsed time in seconds, > 0.")
     type: RunType = Field(..., description="Run surface/type. Allowed: outdoor, track, treadmill.")
 
-DB = "runs.sqlite"
+DB = "../db/runs.sqlite"
 mcp = FastMCP("runs-service")
 
 @mcp.tool()

@@ -1,7 +1,7 @@
 import sqlite3, datetime
 
-DB = "runs.sqlite"
-TSV = "run_5k.tsv"
+DB = "db/runs.sqlite"
+TSV = "resources/run_5k.tsv"
 
 def hms_to_seconds(hms):
     h, m, s = map(int, hms.split(":"))

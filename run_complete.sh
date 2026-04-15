@@ -32,16 +32,16 @@ fi
 
 # Step 4: Initialize database if needed
 echo "💾 Setting up database..."
-if [ ! -f "runs.sqlite" ]; then
+if [ ! -f "db/runs.sqlite" ]; then
     echo "Creating database schema..."
-    sqlite3 runs.sqlite < tables.sql
+    sqlite3 db/runs.sqlite < db/tables.sql
     echo "✅ Database schema created"
 else
     echo "✅ Database already exists"
 fi
 
 # Step 5: Load data if needed
-if [ -f "run_5k.tsv" ] && [ -f "runs.sqlite" ]; then
+if [ -f "resources/run_5k.tsv" ] && [ -f "db/runs.sqlite" ]; then
     echo "📊 Loading/updating run data..."
     python3 load_5k.py
     python3 load_10k.py
