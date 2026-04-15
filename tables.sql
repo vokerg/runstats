@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS runs (
   type          TEXT NOT NULL CHECK (type IN ('outdoor','track','treadmill')),
   rank_all      INTEGER,
   rank_outdoor  INTEGER,
+  rank_treadmill INTEGER,
   is_record     INTEGER CHECK (is_record IN (0,1))
 );
 

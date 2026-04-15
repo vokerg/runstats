@@ -13,7 +13,12 @@ def dmy_to_iso(dmy_dot):
 
 def map_type(token):
     token = token.strip().lower()
-    return "treadmill" if token == "t" else "outdoor"
+    if token == "t":
+        return "treadmill"
+    elif token == "s":
+        return "track"
+    else:
+        return "outdoor"
 
 con = sqlite3.connect(DB)
 cur = con.cursor()

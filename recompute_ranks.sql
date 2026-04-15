@@ -16,12 +16,23 @@ SELECT run_no,
 FROM runs
 WHERE type IN ('outdoor','track');
 
+-- treadmill ranks
+DROP TABLE IF EXISTS temp.rank_treadmill;
+CREATE TEMP TABLE rank_treadmill AS
+SELECT run_no,
+       RANK() OVER (PARTITION BY distance_km ORDER BY time_seconds) AS r_tread
+FROM runs
+WHERE type = 'treadmill';
+
 -- write back to base table
 UPDATE runs
 SET rank_all = (SELECT r_all FROM rank_all WHERE rank_all.run_no = runs.run_no);
 
 UPDATE runs
 SET rank_outdoor = (SELECT r_out FROM rank_outdoor WHERE rank_outdoor.run_no = runs.run_no);
+
+UPDATE runs
+SET rank_treadmill = (SELECT r_tread FROM rank_treadmill WHERE rank_treadmill.run_no = runs.run_no);
 
 -- record flag (your rule: rank_all = 1)
 UPDATE runs
