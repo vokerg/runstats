@@ -1,13 +1,15 @@
 CREATE TABLE IF NOT EXISTS runs (
-  run_no        INTEGER PRIMARY KEY,
-  date          TEXT NOT NULL,                         -- YYYY-MM-DD
-  distance_km   REAL NOT NULL,
-  time_seconds  INTEGER NOT NULL,
-  type          TEXT NOT NULL CHECK (type IN ('outdoor','track','treadmill')),
-  rank_all      INTEGER,
-  rank_outdoor  INTEGER,
-  rank_treadmill INTEGER,
-  is_record     INTEGER CHECK (is_record IN (0,1))
+  run_no          INTEGER PRIMARY KEY,
+  date            TEXT NOT NULL,                         -- YYYY-MM-DD
+  distance_km     REAL NOT NULL,
+  time_seconds    INTEGER NOT NULL,
+  type            TEXT NOT NULL CHECK (type IN ('outdoor','track','treadmill')),
+  rank_all        INTEGER,
+  rank_outdoor    INTEGER,
+  rank_outdoor_track INTEGER,
+  rank_track      INTEGER,
+  rank_treadmill  INTEGER,
+  is_record       INTEGER CHECK (is_record IN (0,1))
 );
 
 CREATE INDEX IF NOT EXISTS idx_runs_dist_time ON runs(distance_km, time_seconds);
