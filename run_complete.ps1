@@ -82,7 +82,7 @@ if (-not (Test-Path ".env")) {
 # Step 8: Check for OPENAI_API_KEY
 $apiKey = [Environment]::GetEnvironmentVariable("OPENAI_API_KEY")
 if (!$apiKey) {
-    $apiKey = (Select-String "OPENAI_API_KEY" .env -ErrorAction SilentlyContinue | Select-Object -First 1 | % {$_.Line -replace '.*=\s*',''}).Trim('"''')
+    $apiKey = (Select-String "OPENAI_API_KEY" .env -ErrorAction SilentlyContinue | Select-Object -First 1 | % {$_.Line -replace '.*=\s*',''}).Trim('"', "'")
 }
 
 if (!$apiKey -or $apiKey -eq "your_api_key_here") {

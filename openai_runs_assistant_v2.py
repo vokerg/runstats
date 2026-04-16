@@ -50,19 +50,19 @@ QUERY_RUNS_TOOL = {
             "run_type": {
                 "type": "string",
                 "enum": ["outdoor", "track", "treadmill"],
-                "description": "Optional run type filter. Use 'outdoor' for outdoor runs, 'track' for track/stadium runs, 'treadmill' for treadmill runs.",
+                "description": "Optional run type filter. Omit when not needed. Use 'outdoor' for outdoor runs, 'track' for track/stadium runs, 'treadmill' for treadmill runs.",
             },
             "year": {
                 "type": "integer",
-                "description": "Filter by specific year (e.g., 2023, 2024). Use instead of date_from/date_to for simpler year-based queries.",
+                "description": "Filter by specific year (e.g., 2023, 2024). Omit when unknown or not needed. Do not send 0.",
             },
             "date_from": {
                 "type": "string",
-                "description": "Inclusive start date in YYYY-MM-DD format.",
+                "description": "Inclusive start date in YYYY-MM-DD format. Omit when not needed; do not send an empty string.",
             },
             "date_to": {
                 "type": "string",
-                "description": "Inclusive end date in YYYY-MM-DD format.",
+                "description": "Inclusive end date in YYYY-MM-DD format. Omit when not needed; do not send an empty string.",
             },
             "rank_all": {
                 "type": "integer",
@@ -118,10 +118,29 @@ def build_instructions(today: str) -> str:
         f"{today}. When the user uses relative dates like 'recently' or 'last year', "
         "interpret them relative to that date. "
         "You can filter by distance (5km, 10km, etc), run type (outdoor, track, treadmill), year, date range, and rankings. "
+        "Only filter by run_type when the user explicitly asks for outdoor, track, or treadmill results. "
+        "When calling query_runs, omit filters you do not need instead of sending placeholder values. "
+        "Do not send year=0, and do not send empty strings for date_from/date_to. "
         "For meaningful comparisons, prefer rank_outdoor_track (outdoor+track combined) over rank_all when the user cares about 'real' outdoor performance. "
+        "For questions like 'fastest ever' at a specific distance, query that exact distance with limit=1 and no year filter unless the user asks for a year. "
         "In your final answer, be concise, cite specific dates and times when helpful, include the run's speed/pace if available, "
         "and clearly indicate the run type if relevant."
     )
+
+
+def sanitize_query_runs_args(tool_args: dict[str, Any]) -> dict[str, Any]:
+    cleaned = dict(tool_args)
+
+    if cleaned.get("year") in (0, "", None):
+        cleaned.pop("year", None)
+    if cleaned.get("date_from") in ("", None):
+        cleaned.pop("date_from", None)
+    if cleaned.get("date_to") in ("", None):
+        cleaned.pop("date_to", None)
+    if cleaned.get("run_type") in ("", None):
+        cleaned.pop("run_type", None)
+
+    return cleaned
 
 
 def build_transport(args: argparse.Namespace):
@@ -187,6 +206,15 @@ async def ask_question(
         tool_outputs = []
         for item in function_calls:
             tool_args = json.loads(item.arguments or "{}")
+            if item.name == "query_runs":
+                sanitized_args = sanitize_query_runs_args(tool_args)
+                if sanitized_args != tool_args:
+                    logger.info(
+                        "   Sanitized query_runs args from %s to %s",
+                        json.dumps(tool_args),
+                        json.dumps(sanitized_args),
+                    )
+                tool_args = sanitized_args
             logger.info(f"   📞 Calling: {item.name}({json.dumps(tool_args)})")
             
             tool_result = await session.call_tool(item.name, tool_args)
@@ -291,17 +319,24 @@ async def run_chat_loop(args: argparse.Namespace) -> None:
                     logger.info("👋 Chat ended (user requested exit)")
                     return
 
-                answer, previous_response_id = await ask_question(
-                    client=client,
-                    session=session,
-                    model=args.model,
-                    instructions=instructions,
-                    question=question,
-                    max_output_tokens=args.max_output_tokens,
-                    max_round_trips=args.max_round_trips,
-                    verbose=args.verbose,
-                    previous_response_id=previous_response_id,
-                )
+                try:
+                    answer, previous_response_id = await ask_question(
+                        client=client,
+                        session=session,
+                        model=args.model,
+                        instructions=instructions,
+                        question=question,
+                        max_output_tokens=args.max_output_tokens,
+                        max_round_trips=args.max_round_trips,
+                        verbose=args.verbose,
+                        previous_response_id=previous_response_id,
+                    )
+                except RuntimeError as exc:
+                    logger.error(f"âŒ Chat turn failed: {exc}")
+                    print(f"\nAssistant: Sorry, I got stuck while querying your runs: {exc}")
+                    previous_response_id = None
+                    continue
+
                 print(f"\nAssistant: {answer}")
 
 
